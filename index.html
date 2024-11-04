@@ -1,34 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Leaflet Step-1</title>
-
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin="" />
-
-  <!-- Our CSS -->
-  <link rel="stylesheet" type="text/css" href="static/css/style.css">
+    <meta charset="UTF-8">
+    <title>Earthquake Visualization</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        /* Ensure map div has a defined height */
+        #map { height: 600px; width: 100%; }
+        .legend {
+            background: white;
+            padding: 10px;
+            line-height: 18px;
+            color: #555;
+            border: 2px solid grey;
+            position: fixed;
+            bottom: 30px;
+            left: 10px;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+    </style>
 </head>
-
 <body>
+    <h1>Earthquake Visualization</h1>
+    <div id="map"></div>
 
-  <!-- The div that holds our map -->
-  <div id="map"></div>
+    <!-- Add Leaflet and D3 libraries -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script>
+        // Check if map container exists in the DOM
+        console.log("Map container:", document.getElementById('map'));
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""></script>
-  <!-- D3 JavaScript -->
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <!-- Our JavaScript -->
-  <script type="text/javascript" src="static/js/logic.js"></script>
+        // Initialize the map
+        const map = L.map('map').setView([20, 0], 2);
+        
+        // Check if Leaflet map object was created
+        console.log("Map initialized:", map);
+
+        // Add a tile layer to the map
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // URL for the USGS Earthquake data
+        const earthquakeUrl = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson';
+
+        // Function to determine marker color based on depth
+        function getColor(depth) {
+            return depth > 100 ? '#800026' :
+                   depth > 50  ? '#BD0026' :
+                   depth > 30  ? '#E31A1C' :
+                   depth > 10  ? '#FD8D3C' :
+                                 '#FEB24C';
+        }
+
+        // Function to determine marker size based on magnitude
+        function getRadius(magnitude) {
+            return magnitude ? magnitude * 3 : 1;  // Ensure some visibility even for small magnitudes
+        }
+
+        // Load data with D3
+        d3.json(earthquakeUrl).then(data => {
+            console.log("Data loaded:", data);  // Check if data is loaded
+            
+            // Ensure that features exist in the data
+            if (data && data.features) {
+                data.features.forEach(feature => {
+                    const coords = feature.geometry.coordinates;
+                    const depth = coords[2];
+                    const magnitude = feature.properties.mag;
+                    const location = feature.properties.place;
+
+                    // Add a circle marker for each earthquake
+                    L.circleMarker([coords[1], coords[0]], {
+                        radius: getRadius(magnitude),
+                        fillColor: getColor(depth),
+                        color: getColor(depth),
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.7
+                    })
+                    .bindPopup(`<b>Location:</b> ${location}<br>
+                                <b>Magnitude:</b> ${magnitude}<br>
+                                <b>Depth:</b> ${depth} km`)
+                    .addTo(map);
+                });
+            } else {
+                console.error("Invalid data structure:", data);
+            }
+        }).catch(error => {
+            console.error("Error loading data:", error);  // Handle fetch errors
+        });
+
+        // Add legend for depth
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function () {
+            const div = L.DomUtil.create('div', 'legend');
+            const depths = [0, 10, 30, 50, 100];
+
+            div.innerHTML = "<b>Depth (km)</b><br>";
+            depths.forEach((depth, index) => {
+                div.innerHTML +=
+                    `<i style="background:${getColor(depth + 1)}"></i> ` +
+                    depth + (depths[index + 1] ? '&ndash;' + depths[index + 1] + '<br>' : '+');
+            });
+
+            return div;
+        };
+        legend.addTo(map);
+    </script>
 </body>
-
 </html>

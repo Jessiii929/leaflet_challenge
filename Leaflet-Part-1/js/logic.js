@@ -1,3 +1,4 @@
+// URL for the USGS Earthquake data
 const earthquakeUrl = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson';
 
 // Initialize the map
@@ -7,6 +8,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
+// Function to determine marker color based on depth
 function getColor(depth) {
     return depth > 100 ? '#800026' :
            depth > 50  ? '#BD0026' :
@@ -15,18 +17,20 @@ function getColor(depth) {
                          '#FEB24C';
 }
 
+// Function to determine marker size based on magnitude
 function getRadius(magnitude) {
-    return magnitude * 3;
+    return magnitude ? magnitude * 3 : 1;  // Ensure some visibility even for small magnitudes
 }
 
-async function fetchEarthquakeData() {
-    const response = await fetch(earthquakeUrl);
-    const data = await response.json();
+// Load data with D3
+d3.json(earthquakeUrl).then(data => {
     data.features.forEach(feature => {
         const coords = feature.geometry.coordinates;
         const depth = coords[2];
         const magnitude = feature.properties.mag;
+        const location = feature.properties.place;
 
+        // Add a circle marker for each earthquake
         L.circleMarker([coords[1], coords[0]], {
             radius: getRadius(magnitude),
             fillColor: getColor(depth),
@@ -35,15 +39,14 @@ async function fetchEarthquakeData() {
             opacity: 1,
             fillOpacity: 0.7
         })
-        .bindPopup(`<b>Location:</b> ${feature.properties.place}<br>
+        .bindPopup(`<b>Location:</b> ${location}<br>
                     <b>Magnitude:</b> ${magnitude}<br>
                     <b>Depth:</b> ${depth} km`)
         .addTo(map);
     });
-}
+});
 
-fetchEarthquakeData();
-
+// Add legend for depth
 const legend = L.control({ position: 'bottomright' });
 legend.onAdd = function () {
     const div = L.DomUtil.create('div', 'legend');
